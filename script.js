@@ -1,6 +1,8 @@
 let p1_turn;
 let game_board;
 let events;
+let round;
+let last_pressed;
 
 function tileSmallBoard(small_board, j) {
     for (let i=0; i<9; i++) {
@@ -110,20 +112,45 @@ function shiftBold() {
     }
 }
 
-function makePromise(cur_tile) {
+function hoverLegal(restrict) {
+    if (restrict==9 || game_board.squares[restrict].won != 0) {
+        return;
+    }
+    const square = document.querySelector(`#board-${restrict}`);
+    const square_children = square.childNodes;
+    for (let i=0; i<square_children.length; i++) {
+        square_children[i].style.backgroundColor = 'turquoise';
+    }
+}
+
+function removeLegal(restrict) {
+    if (restrict==9 || game_board.squares[restrict].won != 0) {
+        return;
+    }
+    const square = document.querySelector(`#board-${restrict}`);
+    const square_children = square.childNodes;
+    for (let i=0; i<square_children.length; i++) {
+        square_children[i].style.backgroundColor = 'blanchedalmond';
+    }
+}
+
+function makePromise(cur_tile, i) {
     return new Promise((resolve)=>{
         cur_tile.addEventListener('click', () => {
             const ctest = cur_tile;
+            console.log(i);
+            game_board.squares[Math.floor(i/9)].tiles[i%9] = p1_turn?1:2;
+            last_pressed = i;
             const move = document.createElement('img');
-                if (p1_turn) {
-                    move.src = './img/letter-x.svg';
-                    ctest.appendChild(move);
-                }
-                else {
-                    move.src = './img/letter-o.svg';
-                    ctest.appendChild(move);
-                }
-                resolve();
+            if (p1_turn) {
+                move.src = './img/letter-x.svg';
+                ctest.appendChild(move);
+            }
+            else {
+                move.src = './img/letter-o.svg';
+                ctest.appendChild(move);
+            }
+            resolve();
         }, {once: true});
     });
 }
@@ -141,7 +168,7 @@ function addListeners(events, restrict) {
             continue;
         }
         //cur_tile.addEventListener('click', clickSquare(cur_tile));
-        events.push(makePromise(cur_tile));
+        events.push(makePromise(cur_tile, i));
     }
 }
 
@@ -164,11 +191,18 @@ function removeListeners(restrict) {
 
 async function playGame(restrict) {
     shiftBold();
+    hoverLegal(restrict);
     events = [];
     addListeners(events, restrict);
     await Promise.race(events);
     removeListeners(restrict);
     p1_turn = !p1_turn;
+    round += 1;
+    if (round > 80) {
+        return;
+    }
+    removeLegal(restrict);
+    restrict = Math.floor(last_pressed%9);
     playGame(restrict);
 }
 
@@ -176,6 +210,7 @@ function startGame() {
     tileAllBoards();
     game_board = board();
     p1_turn = true;
+    round = 0;
     playGame(9);
 }
 
