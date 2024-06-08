@@ -80,3 +80,14 @@ button:hover {
 img {
     width: 90%;
 }
+
+#postgame {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+#finaltext {
+    height: 20%;
+}
