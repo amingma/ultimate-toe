@@ -21,11 +21,12 @@ function tileAllBoards() {
     // }
     const boards = document.querySelectorAll('.small-board');
     for (let i=0; i<boards.length; i++) {
+        boards[i].style.display = 'grid';
         tileSmallBoard(boards[i], i);
     }
 }
 
-const play_button = document.querySelector('button');
+const play_button = document.querySelector('#play');
 play_button.addEventListener('click', ()=>{
     const welcome = document.querySelector('#rules');
     welcome.style.display = 'none';
@@ -88,7 +89,7 @@ const winChecks = (function(){
             return board.squares[2].won;
         }
         return 0;
-    }
+    }   
     return {horWin, vertWin, diagWin};
 })();
 
@@ -138,8 +139,7 @@ function makePromise(cur_tile, i) {
     return new Promise((resolve)=>{
         cur_tile.addEventListener('click', () => {
             const ctest = cur_tile;
-            console.log(i);
-            game_board.squares[Math.floor(i/9)].tiles[i%9] = p1_turn?1:2;
+            game_board.squares[Math.floor(i/9)].tiles[i%9].filled = p1_turn?1:2;
             last_pressed = i;
             const move = document.createElement('img');
             if (p1_turn) {
@@ -158,16 +158,19 @@ function makePromise(cur_tile, i) {
 function addListeners(events, restrict) {
     let lb = restrict*9;
     let ub = lb+9;
-    if (restrict==9) {
+    if (restrict==9 || game_board.squares[restrict].won != 0) {
         lb = 0; ub = 81;
     }
     for (let i=lb; i<ub; i++) {
+        if (i%9==0 && game_board.squares[i/9].won!=0) {
+            i+=8;
+            continue;
+        }
         let cur_id = `#tile-${i}`;
         const cur_tile = document.querySelector(cur_id);
         if (cur_tile.hasChildNodes()) {
             continue;
         }
-        //cur_tile.addEventListener('click', clickSquare(cur_tile));
         events.push(makePromise(cur_tile, i));
     }
 }
@@ -175,10 +178,14 @@ function addListeners(events, restrict) {
 function removeListeners(restrict) {
     let lb = restrict*9;
     let ub = lb+9;
-    if (restrict==9) {
+    if (restrict==9 || game_board.squares[restrict].won != 0) {
         lb = 0; ub = 81;
     }
     for (let i=lb; i<ub; i++) {
+        if (i%9==0 && game_board.squares[i/9].won!=0) {
+            i+=8;
+            continue;
+        }
         let cur_id = `#tile-${i}`;
         const cur_tile = document.querySelector(cur_id);
         if (cur_tile.hasChildNodes()) {
@@ -189,6 +196,97 @@ function removeListeners(restrict) {
     }
 }
 
+const squareChecks = (function() {
+    const horWin = (square)=>{
+        for (let i=0; i<9; i+=3) {
+            if (square.tiles[i].filled == 0) {
+                continue;
+            }
+            if (square.tiles[i].filled==square.tiles[i+1].filled && square.tiles[i].filled==square.tiles[i+2].filled) {
+                return square.tiles[i].filled;
+            }
+        }
+        return 0;
+    }
+    const vertWin = (square)=>{
+        for (let i=0; i<3; i++) {
+            if (square.tiles[i].filled == 0) {
+                continue;
+            }
+            if (square.tiles[i].filled==square.tiles[i+3].filled && square.tiles[i].filled==square.tiles[i+6].filled) {
+                return square.tiles[i].filled;
+            }
+        }
+        return 0;
+    }
+    const diagWin = (square)=>{
+        if (square.tiles[0].filled > 0 && square.tiles[0].filled==square.tiles[4].filled && square.tiles[0].filled==square.tiles[8].filled) {
+            return square.tiles[0].filled;
+        }
+        if (square.tiles[2].filled > 0 && square.tiles[2].filled==square.tiles[4].filled && square.tiles[2].filled==square.tiles[6].filled) {
+            return square.tiles[2].filled;
+        }
+        return 0;
+    }
+    return {horWin, vertWin, diagWin};
+})();
+
+function squareWon(square) {
+    return Math.max(squareChecks.horWin(square), squareChecks.vertWin(square), squareChecks.diagWin(square));
+}
+
+function updateSquare(square_num) {
+    const cur_square = document.querySelector(`#board-${square_num}`);
+    let marking = document.createElement('img');
+    marking.src = p1_turn?'./img/letter-x.svg':'./img/letter-o.svg';
+    while(cur_square.hasChildNodes()) {
+        cur_square.removeChild(cur_square.lastChild);
+    }
+    cur_square.style.display = 'flex';
+    cur_square.style.justifyContent = 'center';
+    cur_square.appendChild(marking);
+}
+
+function checkSquare() {
+    const square_num = Math.floor(last_pressed/9);
+    const result = squareWon(game_board.squares[square_num]);
+    if (result !=0) {
+        updateSquare(square_num);
+        game_board.squares[square_num].won = result;
+    }
+}
+
+function resetBoard() {
+    const boards = document.querySelectorAll('.small-board');
+    for (let i=0; i<boards.length; i++) {
+        boards[i].replaceChildren();
+    }
+}
+
+function processGame(result) {
+    const game = document.querySelector('#game');
+    const postgame_screen = document.querySelector('#postgame');
+    const postgame_text = document.querySelector('#finaltext');
+    const postgame_button = document.querySelector('#rematch');
+    game.style.display = 'none';
+    if (result==0) {
+        postgame_text.textContent = 'Game ended in a draw';
+    }
+    else if (result==1) {
+        postgame_text.textContent = 'Congratulations to Player 1 for winning!';
+    }
+    else {
+        postgame_text.textContent = 'Congratulations to Player 2 for winning!';
+    }
+    postgame_button.addEventListener('click', ()=>{
+        resetBoard();
+        startGame();
+        postgame_screen.style.display = 'none';
+        game.style.display = 'flex';
+    })
+    postgame_screen.style.display = 'flex';
+}
+
 async function playGame(restrict) {
     shiftBold();
     hoverLegal(restrict);
@@ -196,13 +294,16 @@ async function playGame(restrict) {
     addListeners(events, restrict);
     await Promise.race(events);
     removeListeners(restrict);
-    p1_turn = !p1_turn;
+    removeLegal(restrict);
+    checkSquare();
     round += 1;
-    if (round > 80) {
+    const result = isOver(game_board);
+    if (round > 80 || result) {
+        processGame(result);
         return;
     }
-    removeLegal(restrict);
     restrict = Math.floor(last_pressed%9);
+    p1_turn = !p1_turn;
     playGame(restrict);
 }
 
