@@ -26,7 +26,7 @@ function tileAllBoards() {
     }
 }
 
-const play_button = document.querySelector('#play');
+const play_button = document.querySelector('#play-human');
 play_button.addEventListener('click', ()=>{
     const welcome = document.querySelector('#rules');
     welcome.style.display = 'none';
@@ -114,24 +114,47 @@ function shiftBold() {
 }
 
 function hoverLegal(restrict) {
-    if (restrict==9 || game_board.squares[restrict].won != 0) {
-        return;
+    // if (restrict==9 || game_board.squares[restrict].won != 0) {
+    //     return;
+    // }
+    // const square = document.querySelector(`#board-${restrict}`);
+    // const square_children = square.childNodes;
+    // for (let i=0; i<square_children.length; i++) {
+    //     square_children[i].style.backgroundColor = 'turquoise';
+    // }
+    let lb = restrict*9;
+    let ub = lb + 9;
+    if (restrict == 9 || game_board.squares[restrict].won != 0) {
+        lb = 0; ub = 81;
     }
-    const square = document.querySelector(`#board-${restrict}`);
-    const square_children = square.childNodes;
-    for (let i=0; i<square_children.length; i++) {
-        square_children[i].style.backgroundColor = 'turquoise';
+    for (let i=lb; i<ub; i++) {
+        if (i%9==0 && game_board.squares[i/9].won!=0) {
+            i+=8;
+            continue;
+        }
+        let cur_id = `#tile-${i}`;
+        const cur_tile = document.querySelector(cur_id);
+        if (cur_tile.hasChildNodes()) {
+            continue;
+        }
+        cur_tile.style.backgroundColor = 'turquoise';
     }
 }
 
 function removeLegal(restrict) {
-    if (restrict==9 || game_board.squares[restrict].won != 0) {
-        return;
+    let lb = restrict*9;
+    let ub = lb + 9;
+    if (restrict == 9 || game_board.squares[restrict].won != 0) {
+        lb = 0; ub = 81;
     }
-    const square = document.querySelector(`#board-${restrict}`);
-    const square_children = square.childNodes;
-    for (let i=0; i<square_children.length; i++) {
-        square_children[i].style.backgroundColor = 'blanchedalmond';
+    for (let i=lb; i<ub; i++) {
+        if (i%9==0 && game_board.squares[i/9].won!=0) {
+            i+=8;
+            continue;
+        }
+        let cur_id = `#tile-${i}`;
+        const cur_tile = document.querySelector(cur_id);
+        cur_tile.style.backgroundColor = 'blanchedalmond';
     }
 }
 
