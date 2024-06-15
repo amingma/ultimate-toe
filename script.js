@@ -318,8 +318,14 @@ function processGame(result) {
     if (result==0) {
         postgame_text.textContent = 'Game ended in a draw';
     }
-    else if (result==1) {
+    else if (result==1 && pvp) {
         postgame_text.textContent = 'Congratulations to Player 1 for winning!';
+    }
+    else if (result==1 && pve) {
+        postgame_text.textContent = 'Congratulations for beating the computer!';
+    }
+    else if (result==2 && pve) {
+        postgame_text.textContent = 'You lost to the computer :('
     }
     else {
         postgame_text.textContent = 'Congratulations to Player 2 for winning!';
@@ -410,22 +416,30 @@ function ABSearch(restrict, depth, alpha, beta, cur_board, cpu_turn) {
     }
 }
 
+function chooseAndUpdate(optimal_moves) {
+    const i = Math.floor(Math.random()*optimal_moves.length);
+    const cur_tile = document.querySelector(`#tile-${optimal_moves[i]}`);
+    const cur_move = document.createElement('img')
+    cur_move.src = './img/letter-o.svg';
+    cur_tile.appendChild(cur_move);
+    last_pressed = optimal_moves[i];
+    game_board.squares[Math.floor(optimal_moves[i]/9)].tiles[optimal_moves[i]%9].filled = 2;
+    return;
+}
+
 function computerMove(restrict) {
     const score_to_reach = ABSearch(restrict, 3, -200, 200, structuredClone(game_board), true);
     const moves = getMoves(game_board, restrict);
+    const optimal_moves = []
     for (let i=0; i<moves.length; i++) {
         let board_clone = structuredClone(game_board);
         board_clone.squares[Math.floor(moves[i]/9)].tiles[moves[i]%9].filled = 2;
         if (evalBoard(board_clone)==score_to_reach) {
-            const cur_tile = document.querySelector(`#tile-${moves[i]}`);
-            const cur_move = document.createElement('img')
-            cur_move.src = './img/letter-o.svg';
-            cur_tile.appendChild(cur_move);
-            last_pressed = moves[i];
-            game_board.squares[Math.floor(moves[i]/9)].tiles[moves[i]%9].filled = 2;
-            return;
+            optimal_moves.push(moves[i]);
         }
     }
+    chooseAndUpdate(optimal_moves);
+    return;
 }
 
 async function playGame(restrict) {
