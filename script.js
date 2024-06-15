@@ -3,6 +3,7 @@ let game_board;
 let events;
 let round;
 let last_pressed;
+let pvp;
 
 function tileSmallBoard(small_board, j) {
     for (let i=0; i<9; i++) {
@@ -26,15 +27,37 @@ function tileAllBoards() {
     }
 }
 
-const play_button = document.querySelector('#play-human');
-play_button.addEventListener('click', ()=>{
+function initPlayerText(isPvp) {
+    pvp = isPvp;
     const welcome = document.querySelector('#rules');
     welcome.style.display = 'none';
     const game = document.querySelector('#game');
     game.style.display = 'flex';
     const board = document.querySelector('#board');
     board.style.display = 'grid';
-})
+    const p1_text = document.querySelector('#p1');
+    const p2_text = document.querySelector('#p2');
+    if (pvp) {
+        p1_text.textContent = 'Player One\'s turn';
+        p2_text.textContent = 'Player Two\'s turn';
+    }
+    else {
+        p1_text.textContent = 'Your turn';
+        p2_text.textContent = 'Computer\'s turn';
+    }
+}
+
+const pvp_button = document.querySelector('#play-human');
+pvp_button.addEventListener('click', ()=>{
+    initPlayerText(true);
+    startGame();
+});
+
+const pve_button = document.querySelector('#play-computer');
+pve_button.addEventListener('click', ()=>{
+    initPlayerText(false);
+    startGame();
+});
 
 function tile() {
     let filled = 0;
@@ -310,13 +333,113 @@ function processGame(result) {
     postgame_screen.style.display = 'flex';
 }
 
+function evalBoard(cur_board) {
+    let ret = 0;
+    if (isOver(cur_board) != 0) {
+        return isOver(cur_board)==1?100:-100;
+    }
+    for (let i=0; i<9; i++) {
+        if (cur_board.squares[i].won != 0) {
+            ret += (cur_board.squares[i].won==1?10:-10);
+        }
+        else {
+            let diff = 0;
+            for (let j=0; j<9; j++) {
+                if (cur_board.squares[i].tiles[j].filled != 0) {
+                    diff += (cur_board.squares[i].tiles[j].filled==1?1:-1);
+                }
+            }
+            ret += (diff>=0?diff*diff:-diff*diff);
+        }
+    }
+    return ret;
+}
+
+function getMoves(cur_board, restrict) {
+    const moves = [];
+    let lb = restrict*9;
+    let ub = lb+9;
+    if (restrict == 9 || cur_board.squares[restrict].won != 0) {
+        lb = 0; ub = 81;
+    }
+    for (let i=lb; i<ub; i++) {
+        if (i%9==0 && cur_board.squares[i/9].won!=0) {
+            i+=8;
+            continue;
+        }
+        if (cur_board.squares[Math.floor(i/9)].tiles[i%9].filled !=0) {
+            continue;
+        }
+        moves.push(i);
+    }
+    return moves;
+}
+
+function ABSearch(restrict, depth, alpha, beta, cur_board, cpu_turn) {
+    if (depth==0 || isOver(cur_board) != 0) {
+        return evalBoard(cur_board);
+    }
+    const moves = getMoves(cur_board, restrict);
+    if (cpu_turn) {
+        let min_score = 200;
+        for (let i=0; i<moves.length; i++) {
+            board_clone = structuredClone(cur_board);
+            board_clone.squares[Math.floor(moves[i]/9)].tiles[moves[i]%9].filled = 2;
+            const best_score_here = ABSearch(moves[i]%9, depth-1, alpha, beta, board_clone, !cpu_turn);
+            min_score = Math.min(min_score, best_score_here);
+            beta = Math.min(beta, best_score_here);
+            if (beta <= alpha) {
+                break;
+            }
+        }
+        return min_score;
+    }
+    else {
+        let max_score = -200;
+        for (let i=0; i<moves.length; i++) {
+            board_clone = structuredClone(cur_board);
+            board_clone.squares[Math.floor(moves[i]/9)].tiles[moves[i]%9].filled = 1;
+            const best_score_here = ABSearch(moves[i]%9, depth-1, alpha, beta, board_clone, !cpu_turn);
+            max_score = Math.max(max_score, best_score_here);
+            alpha = Math.max(alpha, best_score_here);
+            if (beta <= alpha) {
+                break;
+            }
+        }
+        return max_score;
+    }
+}
+
+function computerMove(restrict) {
+    const score_to_reach = ABSearch(restrict, 3, -200, 200, structuredClone(game_board), true);
+    const moves = getMoves(game_board, restrict);
+    for (let i=0; i<moves.length; i++) {
+        let board_clone = structuredClone(game_board);
+        board_clone.squares[Math.floor(moves[i]/9)].tiles[moves[i]%9].filled = 2;
+        if (evalBoard(board_clone)==score_to_reach) {
+            const cur_tile = document.querySelector(`#tile-${moves[i]}`);
+            const cur_move = document.createElement('img')
+            cur_move.src = './img/letter-o.svg';
+            cur_tile.appendChild(cur_move);
+            last_pressed = moves[i];
+            game_board.squares[Math.floor(moves[i]/9)].tiles[moves[i]%9].filled = 2;
+            return;
+        }
+    }
+}
+
 async function playGame(restrict) {
     shiftBold();
     hoverLegal(restrict);
-    events = [];
-    addListeners(events, restrict);
-    await Promise.race(events);
-    removeListeners(restrict);
+    if (pvp || p1_turn) {
+        events = [];
+        addListeners(events, restrict);
+        await Promise.race(events);
+        removeListeners(restrict);
+    }
+    else {
+        computerMove(restrict);
+    }
     removeLegal(restrict);
     checkSquare();
     round += 1;
@@ -337,5 +460,3 @@ function startGame() {
     round = 0;
     playGame(9);
 }
-
-startGame();
