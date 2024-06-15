@@ -321,10 +321,10 @@ function processGame(result) {
     else if (result==1 && pvp) {
         postgame_text.textContent = 'Congratulations to Player 1 for winning!';
     }
-    else if (result==1 && pve) {
+    else if (result==1) {
         postgame_text.textContent = 'Congratulations for beating the computer!';
     }
-    else if (result==2 && pve) {
+    else if (result==2 && !pvp) {
         postgame_text.textContent = 'You lost to the computer :('
     }
     else {
@@ -388,15 +388,24 @@ function ABSearch(restrict, depth, alpha, beta, cur_board, cpu_turn) {
     const moves = getMoves(cur_board, restrict);
     if (cpu_turn) {
         let min_score = 200;
+        let min_move = -1;
         for (let i=0; i<moves.length; i++) {
             board_clone = structuredClone(cur_board);
             board_clone.squares[Math.floor(moves[i]/9)].tiles[moves[i]%9].filled = 2;
             const best_score_here = ABSearch(moves[i]%9, depth-1, alpha, beta, board_clone, !cpu_turn);
-            min_score = Math.min(min_score, best_score_here);
+            if (best_score_here < min_score) {
+                min_score = best_score_here;
+                min_move = moves[i];
+            }
             beta = Math.min(beta, best_score_here);
             if (beta <= alpha) {
                 break;
             }
+        }
+        if (depth==3) {
+            board_clone = structuredClone(cur_board);
+            board_clone.squares[Math.floor(min_move/9)].tiles[min_move%9].filled = 2;
+            return evalBoard(board_clone);
         }
         return min_score;
     }
@@ -430,7 +439,7 @@ function chooseAndUpdate(optimal_moves) {
 function computerMove(restrict) {
     const score_to_reach = ABSearch(restrict, 3, -200, 200, structuredClone(game_board), true);
     const moves = getMoves(game_board, restrict);
-    const optimal_moves = []
+    const optimal_moves = [];
     for (let i=0; i<moves.length; i++) {
         let board_clone = structuredClone(game_board);
         board_clone.squares[Math.floor(moves[i]/9)].tiles[moves[i]%9].filled = 2;
